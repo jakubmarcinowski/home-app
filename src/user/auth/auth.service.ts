@@ -35,6 +35,12 @@ export class AuthService {
       await supabaseClient.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            name: body.name,
+            role: userType,
+          },
+        },
       });
     if (signUpError) {
       throw new BadRequestException(signUpError.message);
@@ -62,16 +68,7 @@ export class AuthService {
       .select()
       .single();
     if (userError) {
-      this.removeUser(id);
       throw new BadRequestException(userError.message);
-    }
-  }
-
-  private async removeUser(id: string) {
-    const supabaseClient = await this.supabaseService.getClient();
-    const { error } = await supabaseClient.auth.admin.deleteUser(id);
-    if (error) {
-      throw new BadRequestException(error.message);
     }
   }
 }

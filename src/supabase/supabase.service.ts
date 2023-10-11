@@ -3,6 +3,7 @@ import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { Database } from './types/db';
 import { REQUEST } from '@nestjs/core';
 import { Request } from 'express';
+import { ExtractJwt } from 'passport-jwt';
 
 @Injectable({ scope: Scope.REQUEST })
 export class SupabaseService {
@@ -14,15 +15,22 @@ export class SupabaseService {
     if (this.clientInstance) {
       return this.clientInstance;
     }
-
+    const token = ExtractJwt.fromAuthHeaderAsBearerToken()(this.request);
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     this.clientInstance = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_KEY,
       {
         auth: {
-          persistSession: false,
-          detectSessionInUrl: false,
           autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: false,
+        },
+        global: {
+          headers,
         },
       },
     );

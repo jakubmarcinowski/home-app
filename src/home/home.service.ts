@@ -76,16 +76,19 @@ export class HomeService {
     });
   }
 
-  async createHome({
-    address,
-    number_of_bathrooms,
-    number_of_bedrooms,
-    city,
-    price,
-    property_type,
-    land_size,
-    images,
-  }: HomeDTO): Promise<HomeDTO> {
+  async createHome(
+    {
+      address,
+      number_of_bathrooms,
+      number_of_bedrooms,
+      city,
+      price,
+      property_type,
+      land_size,
+      images,
+    }: HomeDTO,
+    seller_id: string,
+  ) {
     const supabaseClient = await this.supabaseService.getClient();
     const { data, error } = await supabaseClient
       .from('home')
@@ -97,27 +100,23 @@ export class HomeService {
         price,
         land_size,
         property_type,
-        seller_id: 'e49276e3-652a-4240-83ca-b4d4031077ab', // FIX-ME
+        seller_id,
       })
       .select(homeSelect)
       .single();
-
     if (error) {
       throw new BadRequestException(error.message);
     }
-
     const homeImages = images.map((image) => ({
       ...image,
       home_id: data.id,
     }));
-
     const { error: ImagesError } =
       await this.imageService.saveImage(homeImages);
     if (ImagesError) {
       this.deleteHome(data.id);
       throw new BadRequestException(ImagesError.message);
     }
-
     return new HomeDTO({
       ...data,
       image: defaultImage,
@@ -131,8 +130,7 @@ export class HomeService {
       .update(home)
       .eq('id', home.id)
       .select(homeSelect)
-      // .limit(1, { foreignTable: 'image' }) // FIX-ME
-      .maybeSingle();
+      .single();
 
     const { data, error } = await query;
     if (error) {
@@ -149,13 +147,16 @@ export class HomeService {
 
   async deleteHome(id: number) {
     const supabaseClient = await this.supabaseService.getClient();
-    const { error } = await supabaseClient
+    const { data, error } = await supabaseClient
       .from('home')
       .delete()
       .eq('id', id)
-      .single();
+      .select();
     if (error) {
       throw new BadRequestException(error.message);
+    }
+    if (data.length !== 1) {
+      throw new BadRequestException(`No home found with id ${id}`);
     }
   }
 }
