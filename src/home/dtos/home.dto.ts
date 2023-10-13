@@ -66,3 +66,17 @@ export class HomeDTO {
 }
 
 export class UpdateHomeDTO extends PartialType(HomeDTO) {}
+
+export class MessageDTO {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  @MinLength(4)
+  message: string;
+
+  id: number;
+
+  constructor(partial: Partial<HomeDTO>) {
+    Object.assign(this, partial);
+  }
+}

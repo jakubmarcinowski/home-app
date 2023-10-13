@@ -1,8 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
-import { HomeDTO, UpdateHomeDTO } from './dtos/home.dto';
+import { HomeDTO, MessageDTO, UpdateHomeDTO } from './dtos/home.dto';
 import { defaultImage } from 'src/image/dto/image.dto';
 import { ImageService } from 'src/image/image.service';
+import { UserInfo } from 'src/supabase/decorators/supabase.derorator';
 
 interface HomeFilters {
   city?: string;
@@ -44,7 +49,7 @@ export class HomeService {
       throw new BadRequestException(error.message);
     }
     if (data.length === 0) {
-      throw new BadRequestException('No homes found');
+      throw new NotFoundException('No homes found');
     }
 
     const homes = data.map(
@@ -68,7 +73,7 @@ export class HomeService {
       throw new BadRequestException(error.message);
     }
     if (!data) {
-      throw new BadRequestException(`No home found with id ${id}`);
+      throw new NotFoundException(`No home found with id ${id}`);
     }
     return new HomeDTO({
       ...data,
@@ -158,5 +163,60 @@ export class HomeService {
     if (data.length !== 1) {
       throw new BadRequestException(`No home found with id ${id}`);
     }
+  }
+
+  async getSellerIDByHomeId(id: number) {
+    const supabaseClient = await this.supabaseService.getClient();
+    const { data, error } = await supabaseClient
+      .from('home')
+      .select('seller_id')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return data.seller_id;
+  }
+
+  async inquire(
+    homeId: number,
+    buyer: UserInfo,
+    { message }: MessageDTO,
+  ): Promise<MessageDTO> {
+    const supabaseClient = await this.supabaseService.getClient();
+    const sellerID = await this.getSellerIDByHomeId(homeId);
+    if (sellerID === buyer.id) {
+      throw new BadRequestException('You cannot inquire about your own home');
+    }
+    const { data, error } = await supabaseClient
+      .from('message')
+      .insert({
+        home_id: homeId,
+        buyer_id: buyer.id,
+        message,
+        seller_id: sellerID,
+      })
+      .select('id, message')
+      .single();
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+    return data;
+  }
+
+  async getHomeMessages(homeId: number, sellerID: string) {
+    const supabaseClient = await this.supabaseService.getClient();
+    const { data, error } = await supabaseClient
+      .from('message')
+      .select('id, message, user:profiles!buyer_id(name, phone)')
+      .eq('home_id', homeId)
+      .eq('seller_id', sellerID);
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+    const messages = data.map((message) => new MessageDTO(message));
+    return messages;
   }
 }

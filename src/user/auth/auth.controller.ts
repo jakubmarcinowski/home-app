@@ -36,6 +36,6 @@ export class AuthController {
 
   @Get('me')
   getMe(@User() user: UserInfo) {
-    return user;
+    return user.user_metadata;
   }
 }
